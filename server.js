@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 
-const ADMIN_WEB = path.join(__dirname, 'public');
+const ADMIN_WEB = path.join(__dirname, '../admin_web_page');
 
 const app = express();
 
