@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard · Call AutoTerminate</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+</head>
+
+<body>
+
+    <div class="app-shell">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="sidebar-logo-icon">📵</div>
+                <div>
+                    <div class="sidebar-logo-text">Call AutoTerminate</div>
+                    <div class="sidebar-logo-sub">Admin Panel</div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a class="nav-item active" href="./index.html">
+                    <span class="nav-icon">�</span> Dashboard
+                </a>
+                <a class="nav-item" href="./users.html">
+                    <span class="nav-icon">👥</span> Users
+                </a>
+            </nav>
+
+            <div class="sidebar-user">
+                <div class="avatar" id="avatarInitial">A</div>
+                <span class="sidebar-username" id="navUser">Admin</span>
+                <button class="btn-icon" id="logoutBtn" title="Sign out">⎋</button>
+            </div>
+        </aside>
+
+        <!-- MAIN -->
+        <div class="main-content">
+
+            <!-- TOPBAR -->
+            <div class="topbar">
+                <h1>Dashboard</h1>
+                <div class="topbar-actions">
+                    <button class="btn btn-ghost" id="refreshBtn">↻ Refresh</button>
+                    <button class="btn btn-primary" id="openAddUserBtn">＋ Add User</button>
+                </div>
+            </div>
+
+            <!-- CONTENT -->
+            <div class="content">
+
+                <!-- STATS -->
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-head">
+                            <span class="stat-label">Total Rejected</span>
+                            <div class="stat-icon-wrap">📵</div>
+                        </div>
+                        <div class="stat-val" id="statTotal">—</div>
+                        <div class="stat-sub">All time</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-head">
+                            <span class="stat-label">Rejected Today</span>
+                            <div class="stat-icon-wrap">📅</div>
+                        </div>
+                        <div class="stat-val" id="statToday">—</div>
+                        <div class="stat-sub">Since midnight</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-head">
+                            <span class="stat-label">Unique Numbers</span>
+                            <div class="stat-icon-wrap">🔢</div>
+                        </div>
+                        <div class="stat-val" id="statUnique">—</div>
+                        <div class="stat-sub">Distinct callers</div>
+                    </div>
+                </div>
+
+                <!-- CALL LOG TABLE -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h2>Auto-Rejected Calls &nbsp;<span class="badge" id="countBadge">0</span></h2>
+                        <div class="table-header-right" style="display:flex; gap:12px; align-items:center;">
+                            <select id="dateFilter" class="input"
+                                style="padding: 6px 12px; height: auto; border-radius: 6px; font-size: 13px; cursor: pointer;">
+                                <option value="all">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="this_week">This Week</option>
+                                <option value="this_month">This Month</option>
+                                <option value="last_3_months">Last 3 Months</option>
+                                <option value="this_year">This Year</option>
+                                <option value="custom" disabled>Custom Range (Setup API)</option>
+                            </select>
+                            <button id="exportBtn" class="btn btn-outline"
+                                style="padding: 6px 12px; height: auto; font-size: 13px;">📥 Export Excel</button>
+                            <span style="font-size:12px;color:var(--muted); margin-left: 10px;">Auto-refreshes
+                                30s</span>
+                        </div>
+                    </div>
+                    <div id="tableBody">
+                        <div class="loader">Loading…</div>
+                    </div>
+                </div>
+
+            </div><!-- /content -->
+        </div><!-- /main-content -->
+    </div><!-- /app-shell -->
+
+    <!-- ADD USER MODAL -->
+    <div class="modal-backdrop" id="addUserModal">
+        <div class="modal">
+            <h2>Add New User</h2>
+            <p>Enter the service name and phone number — the password is auto-generated.</p>
+            <form id="addUserForm">
+                <div class="form-group">
+                    <label for="serviceName">Service Name</label>
+                    <input type="text" id="serviceName" placeholder="e.g. Zomato" required autocomplete="off" />
+                </div>
+                <div class="form-group">
+                    <label for="phoneNumber">Phone Number</label>
+                    <input type="tel" id="phoneNumber" placeholder="e.g. 9876543210" required autocomplete="off" />
+                </div>
+                <div class="form-group">
+                    <label>Auto-generated Password</label>
+                    <input type="text" id="generatedPassword" readonly placeholder="Fill fields above…"
+                        style="background:var(--accent-lt);color:var(--accent);font-weight:600;cursor:default;letter-spacing:.5px;" />
+                </div>
+                <div class="alert alert-error" id="modalError"></div>
+                <div class="alert alert-success" id="modalSuccess"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" id="closeModalBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="addUserSubmit">Create User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SheetJS for Excel Exports -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script type="module" src="./assets/js/dashboard.js"></script>
+</body>
+
+</html>
