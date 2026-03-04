@@ -3,9 +3,7 @@ const router = express.Router();
 const CallLog = require('../models/CallLog');
 const User = require('../models/User');
 
-// ── Twilio setup ──────────────────────────────────────────────────────────────
-// Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE in .env
-// If not configured, SMS is logged to console (mock mode)
+
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_FROM = process.env.TWILIO_PHONE;     // e.g. +1415XXXXXXX
@@ -43,16 +41,7 @@ async function sendSms(to, body) {
     }
 }
 
-// ── POST /api/calls  — Log an incoming call ───────────────────────────────────
-//
-//  Body: { receivingNumber, incomingNumber, userId? }
-//
-//  Logic:
-//   • Find existing CallLog for this (receivingNumber, incomingNumber) pair
-//   • If found  → push timestamp + increment count (upsert)
-//   • If not    → create new document (count = 1)
-//   • Send SMS to the incomingNumber (caller) automatically
-//
+
 router.post('/', async (req, res) => {
     try {
         const { receivingNumber, incomingNumber, userId } = req.body;
@@ -60,6 +49,19 @@ router.post('/', async (req, res) => {
         if (!receivingNumber || !incomingNumber) {
             return res.status(400).json({
                 message: 'receivingNumber and incomingNumber are required',
+            });
+        }
+
+        // Verify that the user (receivingNumber) is active
+        const user = await User.findOne({ phoneNumber: receivingNumber });
+        if (!user) {
+            return res.status(404).json({
+                message: 'Receiving number service not found. Cannot log call.',
+            });
+        }
+        if (!user.isActive) {
+            return res.status(403).json({
+                message: 'Service is currently inactive. Auto-rejection disabled.',
             });
         }
 
