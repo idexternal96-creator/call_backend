@@ -87,7 +87,7 @@ router.post('/', async (req, res) => {
                     incomingNumber,
                 },
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: 'after' }
         );
 
         // ── WhatsApp Batch Routing ──────────────────────────────────────────
@@ -114,7 +114,7 @@ router.post('/', async (req, res) => {
                             $push: { currentBatch: { callerNumber: incomingNumber, timestamp: now } },
                             $inc: { currentBatchCount: 1 },
                         },
-                        { new: true }
+                        { returnDocument: 'after' }
                     );
                     console.log(`[WA-DEBUG] Batch updated → count=${updated.currentBatchCount} / cycleCount=${updated.cycleCount}`);
                 }

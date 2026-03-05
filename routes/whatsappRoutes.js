@@ -59,7 +59,7 @@ router.put('/:id', async (req, res) => {
         const config = await WhatsAppRoute.findByIdAndUpdate(
             req.params.id,
             { $set: update },
-            { new: true, runValidators: true }
+            { returnDocument: 'after', runValidators: true }
         );
 
         if (!config) return res.status(404).json({ message: 'Config not found' });

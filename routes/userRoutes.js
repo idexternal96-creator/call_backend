@@ -87,7 +87,7 @@ router.patch('/:id', authMiddleware, async (req, res) => {
         const update = {};
         if (req.body.isActive !== undefined) update.isActive = req.body.isActive;
         if (req.body.serviceName) update.serviceName = req.body.serviceName;
-        const user = await User.findByIdAndUpdate(req.params.id, update, { new: true, select: '-password' });
+        const user = await User.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after', select: '-password' });
         if (!user) return res.status(404).json({ message: 'User not found' });
         res.json(user);
     } catch (err) {
