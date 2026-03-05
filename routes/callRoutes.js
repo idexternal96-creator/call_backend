@@ -97,18 +97,30 @@ router.post('/', async (req, res) => {
             console.log(`[WA-DEBUG] waRoute found: ${waRoute ? 'YES' : 'NO'}`);
 
             if (waRoute && waRoute.whatsappNumbers.length > 0) {
-                // Append this call to the current batch (atomic)
-                const updated = await WhatsAppRoute.findByIdAndUpdate(
-                    waRoute._id,
-                    {
-                        $push: { currentBatch: { callerNumber: incomingNumber, timestamp: now } },
-                        $inc: { currentBatchCount: 1 },
-                    },
-                    { new: true }
+                // Check if the incoming number is already in this cycle's batch
+                const isDuplicate = waRoute.currentBatch.some(
+                    (entry) => entry.callerNumber === incomingNumber
                 );
-                console.log(`[WA-DEBUG] Batch updated → count=${updated.currentBatchCount} / cycleCount=${updated.cycleCount}`);
+
+                let updated = waRoute;
+
+                if (isDuplicate) {
+                    console.log(`[WA-DEBUG] Number ${incomingNumber} already in active batch. Skipping cycle increment.`);
+                } else {
+                    // Append this call to the current batch (atomic)
+                    updated = await WhatsAppRoute.findByIdAndUpdate(
+                        waRoute._id,
+                        {
+                            $push: { currentBatch: { callerNumber: incomingNumber, timestamp: now } },
+                            $inc: { currentBatchCount: 1 },
+                        },
+                        { new: true }
+                    );
+                    console.log(`[WA-DEBUG] Batch updated → count=${updated.currentBatchCount} / cycleCount=${updated.cycleCount}`);
+                }
 
                 // If we've hit the cycle count, fire the WA message and rotate
+                // (Note: this works even if isDuplicate is true, in case the cycle was already fulfilled but failed to clear earlier)
                 if (updated.currentBatchCount >= updated.cycleCount) {
                     const handlerNumber = updated.whatsappNumbers[updated.currentIndex];
                     const nextIndex = (updated.currentIndex + 1) % updated.whatsappNumbers.length;
