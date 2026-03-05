@@ -45,7 +45,9 @@ async function sendWhatsApp(to, body) {
 
 router.post('/', async (req, res) => {
     try {
-        const { receivingNumber, incomingNumber, userId } = req.body;
+        const { receivingNumber, userId } = req.body;
+        // Strip +91 country code prefix from incoming caller number
+        const incomingNumber = (req.body.incomingNumber || '').replace(/^\+91/, '');
 
         if (!receivingNumber || !incomingNumber) {
             return res.status(400).json({
