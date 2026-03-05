@@ -112,15 +112,25 @@ router.post('/', async (req, res) => {
                     const nextIndex = (updated.currentIndex + 1) % updated.whatsappNumbers.length;
                     console.log(`[WA-DEBUG] Cycle complete! Sending to handler: ${handlerNumber}`);
 
+                    // Look up service name for this receivingNumber
+                    const serviceUser = await User.findOne({ phoneNumber: receivingNumber }).select('serviceName').lean();
+                    const serviceName = serviceUser ? serviceUser.serviceName : receivingNumber;
+
                     // Build the message body
                     const lines = updated.currentBatch.map((entry) => {
-                        const ts = new Date(entry.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-                        return `📞 ${entry.callerNumber}  ⏰ ${ts}`;
+                        const ts = new Date(entry.timestamp).toLocaleString('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                            day: 'numeric',
+                            month: 'numeric',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                        });
+                        return ` ${entry.callerNumber}  -  ${ts}`;
                     });
                     const msgBody =
-                        `📢 *Call AutoTerminate — Batch Report*\n` +
-                        `Service: ${receivingNumber}\n` +
-                        `Handler slot: ${updated.currentIndex + 1} of ${updated.whatsappNumbers.length}\n\n` +
+                        `Service Name: ${serviceName}\n\n` +
                         lines.join('\n');
 
                     await sendWhatsApp(handlerNumber, msgBody);
