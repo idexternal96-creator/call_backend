@@ -24,8 +24,7 @@ const callLogSchema = new mongoose.Schema(
             },
         },
 
-        // SMS sent status for the latest call
-        smsSent: { type: Boolean, default: false },
+
     },
     { timestamps: true } // adds createdAt (first call) and updatedAt (last call)
 );

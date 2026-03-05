@@ -2,45 +2,46 @@ const express = require('express');
 const router = express.Router();
 const CallLog = require('../models/CallLog');
 const User = require('../models/User');
-
+const WhatsAppRoute = require('../models/WhatsAppRoute');
 
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_FROM = process.env.TWILIO_PHONE;     // e.g. +1415XXXXXXX
+const TWILIO_WA_FROM = process.env.TWILIO_WHATSAPP_FROM; // e.g. whatsapp:+14155238886
 
 let twilioClient = null;
 if (TWILIO_SID && TWILIO_TOKEN) {
     twilioClient = require('twilio')(TWILIO_SID, TWILIO_TOKEN);
-    console.log('[SMS] Twilio client initialized ✅');
+    console.log('[WA] Twilio client initialized ✅');
 } else {
-    console.log('[SMS] Twilio not configured — running in mock mode 📵');
+    console.log('[WA] Twilio not configured — running in mock mode 📵');
 }
 
 /**
- * Send SMS — uses Twilio if configured, otherwise logs to console.
- * @param {string} to   - recipient phone number (E.164 format: +91XXXXXXXXXX)
- * @param {string} body - message text
+ * Send a WhatsApp message via Twilio (or mock-log if not configured).
  */
-async function sendSms(to, body) {
-    if (twilioClient && TWILIO_FROM) {
+async function sendWhatsApp(to, body) {
+    const waTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+    if (twilioClient && TWILIO_WA_FROM) {
         try {
-            const msg = await twilioClient.messages.create({ to, from: TWILIO_FROM, body });
-            console.log(`[SMS] Sent to ${to} — SID: ${msg.sid}`);
+            const msg = await twilioClient.messages.create({
+                to: waTo,
+                from: TWILIO_WA_FROM,
+                body,
+            });
+            console.log(`[WA] Sent to ${waTo} — SID: ${msg.sid}`);
             return true;
         } catch (err) {
-            console.error(`[SMS] Twilio error: ${err.message}`);
+            console.error(`[WA] Twilio error: ${err.message}`);
             return false;
         }
     } else {
-        // Mock mode
-        console.log(`\n[SMS MOCK] ─────────────────────────────`);
-        console.log(`[SMS MOCK] To:      ${to}`);
-        console.log(`[SMS MOCK] Message: ${body}`);
-        console.log(`[SMS MOCK] ─────────────────────────────\n`);
+        console.log(`\n[WA MOCK] ─────────────────────────────`);
+        console.log(`[WA MOCK] To:      ${waTo}`);
+        console.log(`[WA MOCK] Message: ${body}`);
+        console.log(`[WA MOCK] ─────────────────────────────\n`);
         return true;
     }
 }
-
 
 router.post('/', async (req, res) => {
     try {
@@ -82,38 +83,68 @@ router.post('/', async (req, res) => {
                     userId: userId || null,
                     receivingNumber,
                     incomingNumber,
-                    smsSent: false,
                 },
             },
             { upsert: true, new: true }
         );
 
-        // Build SMS message
-        const smsBody =
-            `📵 Your call to ${receivingNumber} was auto-rejected.\n` +
-            `This number uses Call AutoTerminate.\n` +
-            `Call #${callLog.count} — ${now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
+        // ── WhatsApp Batch Routing ──────────────────────────────────────────
+        try {
+            const waRoute = await WhatsAppRoute.findOne({ serviceNumber: receivingNumber });
 
-        // Send SMS to the caller (incomingNumber)
-        const smsSent = await sendSms(incomingNumber, smsBody);
+            if (waRoute && waRoute.whatsappNumbers.length > 0) {
+                // Append this call to the current batch (atomic)
+                const updated = await WhatsAppRoute.findByIdAndUpdate(
+                    waRoute._id,
+                    {
+                        $push: { currentBatch: { callerNumber: incomingNumber, timestamp: now } },
+                        $inc: { currentBatchCount: 1 },
+                    },
+                    { new: true }
+                );
 
-        // Update smsSent flag
-        if (smsSent) {
-            await CallLog.updateOne(
-                { _id: callLog._id },
-                { $set: { smsSent: true } }
-            );
+                // If we've hit the cycle count, fire the WA message and rotate
+                if (updated.currentBatchCount >= updated.cycleCount) {
+                    const handlerNumber = updated.whatsappNumbers[updated.currentIndex];
+                    const nextIndex = (updated.currentIndex + 1) % updated.whatsappNumbers.length;
+
+                    // Build the message body
+                    const lines = updated.currentBatch.map((entry) => {
+                        const ts = new Date(entry.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+                        return `📞 ${entry.callerNumber}  ⏰ ${ts}`;
+                    });
+                    const msgBody =
+                        `📢 *Call AutoTerminate — Batch Report*\n` +
+                        `Service: ${receivingNumber}\n` +
+                        `Handler slot: ${updated.currentIndex + 1} of ${updated.whatsappNumbers.length}\n\n` +
+                        lines.join('\n');
+
+                    await sendWhatsApp(handlerNumber, msgBody);
+
+                    // Rotate index and reset batch
+                    await WhatsAppRoute.findByIdAndUpdate(waRoute._id, {
+                        $set: {
+                            currentIndex: nextIndex,
+                            currentBatchCount: 0,
+                            currentBatch: [],
+                        },
+                    });
+                }
+            }
+        } catch (waErr) {
+            // WA routing errors must never break the call-logging response
+            console.error(`[WA] Routing error: ${waErr.message}`);
         }
+        // ── End WhatsApp Batch Routing ─────────────────────────────────────
 
         res.status(201).json({
-            message: 'Call logged' + (smsSent ? ' and SMS sent' : ' (SMS failed)'),
+            message: 'Call logged',
             callLog: {
                 id: callLog._id,
                 receivingNumber: callLog.receivingNumber,
                 incomingNumber: callLog.incomingNumber,
                 count: callLog.count,
                 latestTimestamp: now,
-                smsSent,
             },
         });
     } catch (err) {
@@ -121,6 +152,7 @@ router.post('/', async (req, res) => {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 });
+
 
 // ── GET /api/calls  — List all call logs ─────────────────────────────────────
 router.get('/', async (req, res) => {

@@ -32,10 +32,12 @@ app.get('/', (req, res) => res.redirect('/login.html'));
 const callRoutes = require('./routes/callRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const userRoutes = require('./routes/userRoutes');
+const whatsappRoutes = require('./routes/whatsappRoutes');
 
 app.use('/api/calls', callRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 const PORT = process.env.PORT || 5000;
 
