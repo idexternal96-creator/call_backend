@@ -90,7 +90,9 @@ router.post('/', async (req, res) => {
 
         // ── WhatsApp Batch Routing ──────────────────────────────────────────
         try {
+            console.log(`[WA-DEBUG] Looking up WA route for serviceNumber="${receivingNumber}"`);
             const waRoute = await WhatsAppRoute.findOne({ serviceNumber: receivingNumber });
+            console.log(`[WA-DEBUG] waRoute found: ${waRoute ? 'YES' : 'NO'}`);
 
             if (waRoute && waRoute.whatsappNumbers.length > 0) {
                 // Append this call to the current batch (atomic)
@@ -102,11 +104,13 @@ router.post('/', async (req, res) => {
                     },
                     { new: true }
                 );
+                console.log(`[WA-DEBUG] Batch updated → count=${updated.currentBatchCount} / cycleCount=${updated.cycleCount}`);
 
                 // If we've hit the cycle count, fire the WA message and rotate
                 if (updated.currentBatchCount >= updated.cycleCount) {
                     const handlerNumber = updated.whatsappNumbers[updated.currentIndex];
                     const nextIndex = (updated.currentIndex + 1) % updated.whatsappNumbers.length;
+                    console.log(`[WA-DEBUG] Cycle complete! Sending to handler: ${handlerNumber}`);
 
                     // Build the message body
                     const lines = updated.currentBatch.map((entry) => {
